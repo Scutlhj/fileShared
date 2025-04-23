@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>卡片翻转动画</title>
+  <style>
+    .card-container {
+      width: 200px;
+      height: 300px;
+      perspective: 1000px;
+      margin: 50px auto;
+    }
+    .card {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .front, .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border-radius: 10px;
+    }
+    .front {
+      background-color: #3498db;
+      color: white;
+    }
+    .back {
+      background-color: #e74c3c;
+      color: white;
+      transform: rotateY(180deg);
+    }
+    button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card-container">
+    <div class="card">
+      <div class="front">正面</div>
+      <div class="back">背面</div>
+    </div>
+  </div>
+  
+  <button id="flip">翻转卡片</button>
+
+  <script>
+    const card = document.querySelector('.card');
+    let flipped = false;
+    
+    // 创建动画但不立即播放
+    const flipAnimation = card.animate(
+      [
+        { transform: 'rotateY(0deg)' },
+        { transform: 'rotateY(180deg)' }
+      ],
+      {
+        duration: 600,
+        easing: 'ease-in-out',
+        fill: 'forwards'
+      }
+    );
+    
+    // 初始状态为暂停
+    flipAnimation.pause();
+    
+    document.getElementById('flip').addEventListener('click', () => {
+      if (flipped) {
+        flipAnimation.playbackRate = -1; // 反向播放
+      } else {
+        flipAnimation.playbackRate = 1; // 正向播放
+      }
+      
+      flipAnimation.play();
+      flipped = !flipped;
+    });
+  </script>
+</body>
+</html>
