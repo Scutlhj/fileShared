@@ -1,202 +1,1141 @@
-# 读书笔记：Clean Code 与 The Clean Coder
-## Clean Code (第14-17章)
-### 第14章：渐进式改进
-本章通过重构一个名为"Args"的命令行参数解析器，展示了如何将混乱的代码逐步转变为清晰、可维护的代码。初始版本的Args类虽然能工作，但结构混乱、错误处理不一致、职责不清晰。作者通过以下步骤进行重构：
+---
+# You can also start simply with 'default'
+theme: default
+# some information about your slides (markdown enabled)
+title: 《The Clean Coder》第5-14章读书分享
+info: |
+  ## Slidev Starter Template
+  Presentation slides for developers.
 
-- 首先确保有完善的测试覆盖，作为重构的安全网
-- 从简单的命名改进开始，使代码更具可读性
-- 将大型函数分解为更小、更专注的函数
-- 提取参数类型处理逻辑到专门的类中
-- 应用命令模式变体，为不同类型的参数创建专门的处理器
-- 重构后的代码更加模块化、可扩展，且更易于理解和维护，同时保持了原有功能。
+  Learn more at [Sli.dev](https://sli.dev)
+# apply unocss classes to the current slide
+class: text-center
+# https://sli.dev/features/drawing
+drawings:
+  persist: false
+# slide transition: https://sli.dev/guide/animations.html#slide-transitions
+transition: slide-left
+# enable MDC Syntax: https://sli.dev/features/mdc
+mdc: true
+# open graph
+# seoMeta:
+#  ogImage: https://cover.sli.dev
+---
 
-在平时开发项目中，渐进式改进可以通过以下步骤实现：
+# 《The Clean Coder》第5-14章读书分享
 
-- 识别组件中的不同职责（如筛选、展示、交互）
-- 创建小型、专注的子组件
-- 定义清晰的组件接口（props和事件）
-- 使用Vuex或Pinia管理复杂状态
-- 在每一步后运行测试确保功能正常
+分享人：林灏均
 
-```vue
-<!-- 重构前：所有功能混在一个组件中 -->
-<template>
-  <div class="product-list">
-    <input v-model="search" @input="filterProducts">
-    <select v-model="category" @change="filterProducts">
-      <option v-for="cat in categories" :key="cat">{{ cat }}</option>
-    </select>
-    <div v-for="product in filteredProducts" :key="product.id">
-      {{ product.name }} - {{ product.price }}
-      <button @click="addToCart(product)">添加到购物车</button>
-    </div>
-  </div>
-</template>
+<div @click="$slidev.nav.next" class="mt-12 py-1" hover:bg="white op-10">
+  Press Space for next page <carbon:arrow-right />
+</div>
 
-<!-- 重构后：拆分为多个职责单一的组件 -->
-<template>
-  <div class="product-list">
-    <ProductFilters 
-      :categories="categories"
-      @filter-change="applyFilters"
-    />
-    <ProductGrid 
-      :products="filteredProducts"
-      @add-to-cart="addToCart"
-    />
-  </div>
-</template>
+---
+transition: fade-out
+---
+
+# 目录
+
+- 📝 **测试驱动开发** - 每个开发人员都要适应和掌握的开发模式
+- 🎨 **练习** - 保持自己的技能不落伍
+- 🧑‍💻 **验收测试** - 沟通、澄清、精确化
+- 🤹 **测试策略** - QA 应该找不到任何错误
+- 🎥 **时间管理** - 高效地工作
+- 📤 **预估** - 提供可信的预估结果
+- 🛠 **压力** - 回避与应对压力的方法
+- 🤝 **协作** - 学会交流
+- 💻 **团队与项目** - 团队比项目更难构建
+- 🧑‍🎓 **辅导、学徒期与技艺** - 建立成熟的成长机制
+- 💾 **总结**
+
+<style>
+h1 {
+  background-color: #4acbd6;
+  background-size: 100%;
+  -webkit-background-clip: text;
+  -moz-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -moz-text-fill-color: transparent;
+}
+</style>
+
+---
+transition: slide-up
+level: 2
+---
+
+# 第五章：测试驱动开发(TDD)
+
+TDD 是一种软件开发方法，它要求开发人员在编写实际代码之前编写测试用例。
+
+## TDD 的三项法则
+1. 在编写不能通过的单元测试之前，不能编写产品代码。
+2. 只要有一个单元测试失败，就不应该再编写测试代码。
+3. 产品代码恰好能够让当前失败的单元测试成功即可，不要多写
+
+## TDD 的好处
+1. 确定性 - 如果这些测试全部通过，我就确信它可以随时交付
+2. 缺陷注入率 - 减少 bug 数量
+3. 勇气 - 拥有一套值得信赖的测试，便可完全打消对修改代码的全部恐惧
+4. 文档 - 测试代码本身就是文档，用代码描述系统的用法
+5. 设计 - 测试代码会迫使你思考如何设计系统
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2, #slideshow > div.slidev-page.slidev-page-3 > div > h2:nth-child(3) {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+
+</style>
+
+---
+transition: slide-up
+level: 2
+---
+
+# TDD 实践示例
+
+````md magic-move {lines: true}
+```ts
+// 第一步：编写第一个失败测试 - 用户注册成功
+describe('UserRegistration', () => {
+  test('should register user with valid email and password', async () => {
+    const userService = new UserRegistrationService()
+    const result = await userService.register('test@example.com', 'password123')
+    
+    expect(result.success).toBe(true)
+    expect(result.user.email).toBe('test@example.com')
+    expect(result.user.id).toBeDefined()
+  })
+})
+
+// ❌ 测试失败：UserRegistrationService 不存在
 ```
 
-### 第15章：JUnit内幕
-本章分析了JUnit框架中的ComparisonCompactor类，这个类用于生成两个不同字符串之间差异的报告。作者指出了原始代码中的几个问题：
+```ts
+// 第二步：编写最少代码让测试通过
+interface User {
+  id: string
+  email: string
+}
 
-- 变量命名不清晰（如f、p、s等）
-- 过多的注释掩盖了代码本身的问题
-- 部分方法过长且复杂
-- 抽象级别混乱，高层次和低层次概念混在一起
+interface RegistrationResult {
+  success: boolean
+  user?: User
+  error?: string
+}
 
-通过重构，作者将代码转变为更清晰、更有表现力的形式。他重命名变量，提取方法，调整结构，使代码更易理解。重构后的代码不仅更短，而且逻辑更清晰，也更容易维护和扩展。
+class UserRegistrationService {
+  async register(email: string, password: string): Promise<RegistrationResult> {
+    return {
+      success: true,
+      user: { id: '1', email: 'test@example.com' } // 硬编码
+    }
+  }
+}
 
-在本章，作者强调了测试代码同样需要保持整洁。我们平时主要使用的测试框架是Vitest，以下是一些编写测试代码的最佳实践：
+// ✅ 测试通过
+```
 
-- 测试命名需要清晰表达意图
-- 单一断言原则，一个测试一个目标
-- 使用测试工具函数，避免过多重复代码
-- 避免实现细节的测试
-- 清理测试产生的副作用，使用 beforeEach / afterEach 清理测试数据
+```ts
+// 第三步：继续添加更多验证规则
+class UserRegistrationService {
+  async register(email: string, password: string): Promise<RegistrationResult> {
+    return {
+      success: true,
+      user: { id: '1', email: 'test@example.com' }
+    }
+  }
+}
 
-### 第16章：重构SerialDate
-本章分析并重构了JCommon库中的SerialDate类，这是一个处理日期的工具类。作者指出了原代码中的多个问题：
-
-- 过多的注释，很多是多余的或过时的
-- 类承担了太多不同的职责
-- 许多应该是实例方法的功能被实现为静态方法
-- 命名不一致，如方法名混用驼峰式和下划线式
-- 存在重复代码和不必要的复杂性
-
-重构过程中，作者应用了多种设计模式和原则：
-
-- 使用抽象工厂创建日期实例
-- 将月份和星期几转换为枚举类型
-- 实现不可变对象模式
-- 应用单一职责原则分离关注点
-
-在前端老项目进行重构时，需要注意以下细节：
-- 重构前端代码时，首先理解其意图和上下文
-- 识别并消除重复代码，提取共用逻辑到工具函数或hooks中
-- 改进命名，使变量、函数和组件名称能清晰表达其用途
-- 重构时保持谨慎，特别是处理日期、时区等复杂逻辑时，需要编写测试用例保证功能正常
-- 使用TypeScript增强类型安全，减少潜在错误
-
-### 第17章：气味与启发
-本章提供了一个全面的代码质量检查清单，作者称之为"代码气味"，它们是潜在问题的指标。这些气味分为多个类别：
-
-#### 注释相关：
-不恰当的信息：注释不应包含更适合版本控制的信息
-废弃的注释：应删除过时或不准确的注释
-冗余注释：不要注释那些从代码就能明显看出的内容
-注释掉的代码：应该删除而不是注释掉不再使用的代码
-
-#### 函数相关：
-过多的参数：函数参数应该尽量少，最好不超过三个
-输出参数：应避免使用输出参数，优先使用返回值
-标记参数：布尔参数表明函数做了不止一件事，应拆分为多个函数
-死函数：未使用的函数应该被删除
-
-#### 一般性问题：
-重复代码：是所有问题中最严重的，应该通过抽象消除
-代码过于复杂：应该尽量简化逻辑，使代码易于理解
-不恰当的抽象级别：代码应该在一致的抽象级别上操作
-
-#### 命名相关：
-不恰当的名称：名称应该揭示意图，清晰表达其用途
-不一致的命名：同一概念应使用相同的命名约定
-
-#### 测试相关：
-测试不足：代码应该有充分的测试覆盖
-忽略简单测试：即使是简单的代码也应该测试
-测试边界条件：特别关注边界条件和异常情况
-
-#### 前端开发最佳实践：
-保持组件和方法简短，专注于单一职责
-使用描述性的变量和方法名称
-提取重复逻辑到共享组件或工具函数
-编写单元测试验证组件行为
-使用ESLint和Prettier等工具强制代码风格一致性
-定期进行代码审查，识别和解决"代码气味"
-
-## The Clean Coder (第1-4章)
-### 第1章：专业主义
-本章探讨了软件开发中的专业主义概念。作者分享了自己早期职业生涯中的一个故事，他在一个项目中承诺了不切实际的截止日期，导致团队疲惫不堪，最终交付了充满缺陷的软件。这个经历让他认识到专业开发者的核心责任：
-- 对自己的代码负责：专业开发者不会制造缺陷，会主动测试自己的代码
-- 持续学习：技术不断发展，专业人士必须投入时间学习新技能
-- 知道自己的领域：了解业务领域和技术领域，能够提供有价值的建议
-- 谦虚：承认自己的错误，愿意接受反馈和改进
-- 实践：通过刻意练习提升技能，如编码练习、编程竞赛等
-
-作为一名前端开发，以下我个人的一些建议：
-- 对前端代码质量负责，不仅关注视觉效果，也关注性能、可访问性和用户体验
-- 建立前端测试体系，包括单元测试、集成测试和端到端测试，确保代码质量
-- 设定合理的期望，不承诺无法完成的截止日期，特别是对于复杂的UI交互以及功能
-- 诚实地评估和沟通技术债务，不隐瞒前端架构中的问题
-- 持续学习新的前端技术和最佳实践，跟上快速发展的前端生态
-
-### 第2章：说不
-本章讨论了在面对不合理要求时说"不"的重要性。作者分享了几个案例，包括一个开发团队被要求在不可能的时间内完成项目，结果导致质量问题和客户不满。他强调：
-
-- 对不合理的期望说不：不要承诺无法实现的截止日期
-- 对质量妥协说不：不要为了赶进度而牺牲代码质量
-- 对有害的管理决策说不：当决策会导致项目失败时，有责任提出异议
-
-作者提供了有效说"不"的策略：
-- 提供数据和理由，而不仅仅是拒绝
-- 提出替代方案，展示解决问题的意愿
-- 保持专业和尊重，避免情绪化
-- 理解团队目标，寻找共同利益
-
-在平时的项目中，我们需要拒绝不合理的需求，同时提供合理的替代方案。以下是一些建议：
-- 评估需求可行性‌：如产品经理要求“一周内重写整个前端”，应评估技术风险。
-- 技术债务管理‌：明确告知不合理架构（如全局 CSS 污染）的长期成本。
-- 提供准确的时间估算：基于经验和数据，而非乐观假设
-- 建议功能优先级：帮助产品团队确定哪些功能最重要
-- 提出技术替代方案：当原始需求难以实现时，提供替代技术方案
-
-### 第3章：说是
-本章探讨了如何做出并履行承诺。作者强调，说"是"意味着你承诺一定会完成，而不仅仅是尽力而为。他提出了"承诺语言"的概念，区分了不同级别的承诺：
-
-- "我会尽力" - 不是真正的承诺，只表示意愿
-- "我会尝试" - 暗示可能会失败，不是承诺
-- "我会做" - 真正的承诺，表示一定会完成
-
-当承诺一个功能实现时，应该：
-- 分解任务并评估每个子任务时间
-- 考虑联调、测试和意外情况的时间缓冲（如有其他任务冲突）
-- 明确交付标准和验收条件
+describe('UserRegistration', () => {
+  test('should register user with valid email and password', async () => {
+    const userService = new UserRegistrationService()
+    const result = await userService.register('test@example.com', 'password123')
+    expect(result.success).toBe(true)
+  })
   
-比如一个实现用户仪表盘的功能，可以分解为：
-- 前端开发：3天
-  - 搭建基础布局：1天
-  - 集成数据可视化库：0.5天
-  - 实现交互逻辑：1.5天
-- 后端联调：1天
-- 测试修复Bug：1天
-总计：5个工作日（建议排期6天，含缓冲）
+  test('should reject invalid email format', async () => {
+    const userService = new UserRegistrationService()
+    const result = await userService.register('invalid-email', 'password123')
+    expect(result.success).toBe(false) // ❌ 失败
+    expect(result.error).toBe('Invalid email format')
+  })
+})
+```
 
-作者在讨论如何做出可靠承诺时，介绍了一种基于统计学的预估方法，通常称为"三点估算法"(Three-point estimation)。这个方法包括：
-- 乐观估计 (O) - 如果一切顺利，任务完成所需的最短时间
-- 标称估计 (N) - 最可能的完成时间
-- 悲观估计 (P) - 考虑到可能的问题和风险，任务完成所需的最长时间
-- 然后使用以下公式计算加权平均值：E = (O + 4N + P) / 6
+```ts
+// 第四步：编写最少代码让测试通过
+class UserRegistrationService {
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
 
-这种方法可以更准确地预估任务完成时间。后续开发时可以使用这个方法进行预估，并根据实际情况进行调整。
+  async register(email: string, password: string): Promise<RegistrationResult> {
+    if (!this.isValidEmail(email)) {
+      return { success: false, error: 'Invalid email format' }
+    }
+    
+    return {
+      success: true,
+      user: { id: '1', email }
+    }
+  }
+}
 
-### 第4章：编码
-本章讨论了编码过程中的专业态度和实践。作者强调了在适当的精神状态下编码的重要性，以及如何处理常见的编码挑战：
-- 准备状态：编码需要高度专注和清晰思考，应避免在疲劳、生病或情绪低落时编写重要代码
-- 流畅状态：进入"心流"状态可以提高生产力，但也可能导致隧道视野，忽略更广泛的考虑
-- 阻塞：当遇到困难问题时，可以采用结对编程、休息或转换任务等策略
-- 调试：应采用科学方法进行调试，形成假设并验证，而非随机尝试
-- 节奏：保持稳定的工作节奏，避免过度疲劳和"英雄主义"编程
+// ✅ 所有测试通过
+```
+````
 
-作为一个程序员，想要编写出高质量的代码，需要保持专注、有条理和有策略。同时为了自己的身体健康，需要保持良好的生活习惯，如规律作息、健康饮食和定期锻炼。保持良好的精神状态和身体状态，才能更好地应对工作，做到细水长流。
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2, #slideshow > div.slidev-page.slidev-page-3 > div > h2:nth-child(3) {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+
+</style>
+
+---
+level: 2
+---
+
+# TDD 的局限性
+- ⏰ **需要额外的时间和精力** - 编写测试用例需要额外的时间和精力，这可能导致开发速度变慢。
+- 📝 **测试用例的质量问题** - 如果测试用例不够全面或不够准确，可能会导致代码质量不佳。
+- 🧑‍🎓 **对新手不友好** - TDD需要一定的技能和经验，对于新手可能会比较困难。
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2, #slideshow > div.slidev-page.slidev-page-3 > div > h2:nth-child(3) {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+
+---
+class: px-20
+---
+
+# 第六章：练习
+
+职业程序员通常会受到一种限制，即所解决问题的种类比较单一。老板通常只强调一种语言、一种平台，以及程序员的专门领域。经验不够丰富的程序员，履历和思维中都存在某种贻害无穷的盲区。经常可以看到这样的情景：程序员发现，面对行业的周期性变化造成的新局面，自己并没有做好准备。
+
+## 关于练习的职业道德
+- 职业程序员用自己的时间来练习
+- 不必限制在工作的语言和平台
+
+## 推荐的练习网站
+- https://leetcode.cn/
+- https://bigfrontend.dev/
+- https://learngitbranching.js.org/
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2, #slideshow > div.slidev-page.slidev-page-3 > div > h2:nth-child(3) {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+
+---
+
+# 第七章：验收测试
+验收测试是由业务方与开发方共同编写的自动化测试，用于确认需求已完成并可作为交付依据
+
+## 验收测试的目的
+
+- 📋 **沟通** - 业务方和开发方就需求达成一致理解
+- 🔍 **澄清** - 消除需求中的模糊和歧义
+- 📐 **精确化** - 将业务规则转化为可执行的规范
+
+## 验收测试的特点
+
+- ✅ **业务导向** - 从用户角度验证功能是否符合预期
+- 🤝 **协作编写** - 业务分析师、测试人员、开发人员共同参与
+- 🔄 **持续执行** - 作为回归测试的一部分持续运行
+- 📝 **活文档** - 既是测试也是需求文档
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+
+---
+level: 2
+---
+
+# 验收测试 vs 单元测试
+
+| 对比维度 | 验收测试 | 单元测试 |
+|---------|---------|---------|
+| **关注点** | 业务功能是否正确 | 代码逻辑是否正确 |
+| **编写者** | 业务方+开发方协作 | 开发人员 |
+| **测试范围** | 端到端功能验证 | 单个函数/类 |
+| **语言** | 业务领域语言(Gherkin) | 编程语言 |
+| **执行速度** | 相对较慢 | 非常快 |
+| **测试环境** | 接近生产环境 | 隔离的测试环境 |
+| **测试数据** | 真实或接近真实的数据 | 模拟数据 |
+| **依赖关系** | 涉及多个系统组件 | 最小化外部依赖 |
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+
+table {
+  font-size: 0.9em;
+}
+
+th {
+  background-color: #4acbd6;
+  color: white;
+  padding: 12px 8px;
+}
+
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+</style>
+
+---
+level: 2
+---
+
+# 验收测试 vs 单元测试：代码示例
+
+<div class="grid grid-cols-2 gap-8 h-full">
+
+<div>
+
+## 验收测试
+**特点**: 从用户角度验证完整业务流程
+
+```gherkin
+Feature: 用户登录
+Scenario: 用户登录成功
+  Given 存在用户"john@example.com"
+  When 用户输入正确的邮箱和密码
+  Then 用户应该成功登录
+  And 跳转到首页
+  And 显示欢迎信息
+```
+
+</div>
+
+<div>
+
+## 单元测试
+**特点**: 验证单个组件的内部逻辑
+
+```typescript
+describe('EmailValidator', () => {
+  test('should validate email format', () => {
+    const validator = new EmailValidator()
+    
+    expect(validator.isValid('test@example.com'))
+      .toBe(true)
+    expect(validator.isValid('invalid-email'))
+      .toBe(false)
+    expect(validator.isValid(''))
+      .toBe(false)
+  })
+})
+```
+
+</div>
+
+</div>
+
+## 两者的关系
+
+- **验收测试** 确保我们构建了**正确的产品** ✅
+- **单元测试** 确保我们**正确地构建**了产品 🔧
+- 两者互补，共同构成完整的测试体系 🏗️
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+
+table {
+  font-size: 0.9em;
+}
+
+th {
+  background-color: #4acbd6;
+  color: white;
+  padding: 12px 8px;
+}
+
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+</style>
+
+---
+transition: slide-up
+level: 2
+---
+
+# 第八章：测试策略
+专业的开发团队应该建立完整的测试策略，确保软件质量。理想情况下，QA应该找不到任何错误。
+
+## 测试策略的目标
+
+- 🎯 **零缺陷交付** - QA应该找不到任何错误
+- 🔄 **快速反馈** - 尽早发现和修复问题
+- 📈 **持续改进** - 不断优化测试覆盖率和效率
+- 🛡️ **风险控制** - 降低生产环境出现问题的风险
+
+<img src="./assets/image.png" class="absolute top-0 bottom-0 my-auto right-50px w-300px" />
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+
+---
+level: 2
+---
+
+# 第九章：时间管理
+时间是程序员最宝贵的资源。专业的程序员知道如何高效地管理时间，避免浪费，专注于真正重要的工作。
+
+## 时间管理的重要性
+
+<div class="grid grid-cols-2 gap-6">
+
+<div>
+
+### 为什么重要？
+- ⏰ **有限资源** - 每天只有8小时工作时间
+- 🎯 **效率决定价值** - 高效工作创造更大价值  
+- 🧠 **认知负荷** - 大脑处理能力有限
+- 💰 **成本控制** - 时间就是金钱
+
+### 常见时间浪费
+- 📱 **干扰和中断** - 频繁的打断破坏专注
+- 🤔 **优先级不清** - 在不重要的事情上花费时间
+- 🔄 **重复工作** - 缺乏自动化和工具
+- 😴 **疲劳工作** - 在状态不佳时强行工作
+
+</div>
+
+<div>
+
+### 时间管理的核心原则
+
+- 🎯 **专注于重要且紧急的任务**
+- ⚡ **在精力最佳时处理最难的问题**
+- 🚫 **学会说"不"，拒绝不必要的会议和任务**
+- 🔄 **批量处理相似的任务**
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 25px !important;
+}
+</style>
+
+---
+level: 2
+---
+
+# 会议管理：最大的时间杀手
+
+会议是程序员时间管理中最需要注意的环节。不必要的会议会严重影响开发效率。
+
+## 会议的成本
+会议成本 = 会议时间 * 参与人数 * 参与人的平均工资（元/小时）
+
+## 会议类型评估
+| 会议类型 | 必要性 | 建议 |
+|---------|-------|------|
+| **站会** | ⭐⭐⭐⭐ | 保持简短(15分钟) |
+| **需求评审** | ⭐⭐⭐ | 充分准备，明确目标 |
+| **技术分享** | ⭐⭐ | 可选参加，录制回放 |
+| **状态汇报** | ⭐ | 用邮件或工具替代 |
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 10px;
+}
+
+h2 {
+  margin-bottom: 5px !important;
+  margin-top: 20px !important;
+}
+</style>
+
+---
+
+## 拒绝无用会议
+- ❌ **无议程的会议**
+- ❌ **超过8人的讨论会**
+- ❌ **没有明确目标的会议**
+- ❌ **可以邮件解决的问题**
+
+## 会议效率提升
+- 📋 **明确议程** - 提前发送会议议程
+- ⏰ **控制时间** - 严格按时开始和结束
+- 🎯 **聚焦目标** - 避免偏离主题
+- 📝 **记录决策** - 明确行动项和负责人
+- 🚫 **可选参与** - 只邀请必要的人员
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 10px;
+}
+
+h2 {
+  margin-bottom: 5px;
+  margin-top: 20px;
+}
+</style>
+
+---
+
+# 番茄工作法
+番茄工作法是一种时间管理方法，它将工作时间划分为25分钟的工作块，每个工作块后休息5分钟。
+
+```mermaid {scale: 0.7}
+graph LR
+    A[25分钟专注工作] --> B[5分钟休息]
+    B --> C[25分钟专注工作]
+    C --> D[5分钟休息]
+    D --> E[25分钟专注工作]
+    E --> F[5分钟休息]
+    
+    style A fill:#4acbd6
+    style C fill:#4acbd6
+    style E fill:#4acbd6
+```
+
+## 番茄工作法的好处
+- 🔄 **专注** - 25分钟专注工作，提高效率
+- 🧠 **减少压力** - 5分钟休息，缓解疲劳
+- 💪 **拒绝干扰** - 在25分钟的高效工作时间段里，你有底气拒绝任何干扰
+- 📅 **促进任务分解与时间管理** - 将大任务拆解成多个番茄钟，每个番茄钟都有明确的目标，使得任务不再显得复杂和压倒性。
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+
+---
+
+# 优先级管理：重要性矩阵
+
+不是所有的任务都同等重要。学会区分任务的优先级是高效工作的关键。
+
+## 紧急性/重要性矩阵
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+```mermaid {scale: 0.9}
+graph TD
+    subgraph "不紧急"  
+        C["第二象限<br/>🎯 重要但不紧急<br/>计划执行"]
+        D["第四象限<br/>🗑️ 不重要不紧急<br/>删除"]
+    end
+
+    subgraph "紧急"
+        A["第一象限<br/>🔥 重要且紧急<br/>立即执行"]
+        B["第三象限<br/>📞 不重要但紧急<br/>委托他人"]
+    end
+    
+    style A fill:#ef4444,color:#fff
+    style B fill:#fbbf24,color:#000
+    style C fill:#4ade80,color:#000
+    style D fill:#94a3b8,color:#fff
+```
+
+</div>
+
+</div>
+
+专业开发人员会评估每个任务的优先级，排除个人的喜好和需要，按照真实的紧急程度来执行任务
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px;
+  margin-top: 30px;
+}
+</style>
+---
+
+# 第十章：预估
+预估是软件开发中最困难的任务之一。专业程序员需要学会提供可信的预估结果。
+
+## 什么是预估？
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### 预估 ≠ 承诺
+- 📊 **预估** - 基于概率的猜测
+- 🤝 **承诺** - 必须完成的约定
+- ⚠️ **区别很重要** - 混淆两者会导致问题
+
+### 预估的本质
+- 🎲 **概率分布** - 不是单一数字
+- 📈 **不确定性** - 存在风险和变数
+- 🔄 **持续更新** - 随着信息增加而调整
+
+</div>
+
+<div>
+
+### 为什么预估困难？
+- 🧩 **复杂性** - 软件系统复杂度高
+- 🔍 **未知因素** - 需求变化、技术难题
+- 🧠 **认知偏差** - 过度乐观、锚定效应
+- 📚 **经验不足** - 缺乏类似项目经验
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 25px;
+}
+</style>
+
+---
+level: 2
+---
+
+# 预估技术
+
+## PERT三点预估法
+**公式**: 预期时间 = (乐观时间 + 4×最可能时间 + 悲观时间) ÷ 6
+
+| 场景 | 乐观(O) | 最可能(M) | 悲观(P) | 预期时间 |
+|------|---------|-----------|---------|----------|
+| 登录功能 | 1天 | 3天 | 8天 | **3.5天** |
+| 支付模块 | 3天 | 7天 | 15天 | **7.7天** |
+| 数据迁移 | 2天 | 5天 | 20天 | **6.7天** |
+
+## 其他预估方法
+
+- 🔢 **计划扑克** - 团队协作预估，减少偏差
+- 📊 **历史数据** - 基于过往项目的实际数据
+- 🧩 **任务分解** - 将大任务拆分为小任务
+
+<style>
+h1, h2 {
+  color: #4acbd6;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 10px !important;
+  margin-top: 20px !important;
+}
+
+table {
+  font-size: 0.9em;
+}
+
+th {
+  background-color: #4acbd6;
+  color: white;
+  padding: 12px 8px;
+}
+
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+</style>
+
+---
+level: 2
+---
+
+# 预估的最佳实践
+
+## 沟通技巧
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### ❌ 错误的表达
+- "这个很简单，1天就能搞定"
+- "应该不会超过1周"
+- "差不多3天吧"
+
+<br>
+<br>
+
+### ✅ 正确的表达
+- "根据当前信息，我预估需要2-5天"
+- "有90%的把握在1周内完成"
+- "最乐观2天，最悲观1周，最可能4天"
+
+</div>
+
+<div>
+
+### 预估原则
+- 🎯 **诚实透明** - 不隐瞒风险和不确定性
+- 📊 **提供区间** - 给出最小值和最大值
+- 🔄 **及时更新** - 当情况变化时重新预估
+- 📝 **记录假设** - 说明预估基于的前提条件
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 20px;
+}
+</style>
+
+---
+
+# 第十一章：压力
+压力是软件开发中不可避免的现象。专业程序员需要学会识别、回避和应对压力。
+
+## 压力的来源
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### 外部压力
+- ⏰ **紧急的截止日期** - 不合理的时间要求
+- 📈 **不断变化的需求** - 频繁的需求调整
+- 👥 **人员不足** - 团队资源紧张
+- 🎯 **过高的期望** - 超出能力范围的目标
+
+### 内部压力
+- 😰 **完美主义** - 过度追求完美
+- 🤔 **技术焦虑** - 担心技能不足
+- 💭 **冒名顶替综合症** - 怀疑自己的能力
+- 🔄 **工作生活失衡** - 过度工作
+
+</div>
+
+<div>
+
+### 压力的危害
+- 🧠 **思维混乱** - 影响判断和决策
+- 🐛 **错误增加** - 代码质量下降
+- 😴 **效率降低** - 工作产出减少
+- 🏥 **健康问题** - 身心健康受损
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 15px !important;
+}
+</style>
+
+---
+level: 2
+---
+
+## 应对压力的策略
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### 预防措施
+- 📋 **合理规划** - 制定现实可行的计划
+- 🎯 **明确优先级** - 专注最重要的任务
+- 💬 **及时沟通** - 提前报告风险和问题
+- 🚫 **学会拒绝** - 拒绝不合理的要求
+
+</div>
+
+<div>
+
+### 减少压力
+- 🧘 **保持冷静** - 深呼吸，理性分析
+- 🎯 **专注当下** - 一次只做一件事
+- 💪 **寻求帮助** - 向同事或领导求助
+- 🔄 **调整策略** - 灵活应对变化
+
+</div>
+
+</div>
+
+## 专业态度
+> "压力下的优雅是专业程序员的标志。当压力来临时，要遵循训练和纪律，而不是恐慌。"
+
+- ✅ **坚持原则** - 不因压力而降低代码质量
+- 🤝 **团队协作** - 压力下更需要团队合作
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 15px !important;
+}
+
+blockquote {
+  border-left: 4px solid #4acbd6;
+  padding-left: 16px;
+  font-style: italic;
+  margin: 20px 0;
+  background-color: #f8fafc;
+  padding: 16px;
+}
+</style>
+
+---
+
+# 第十二章：协作
+编程是一项团队运动。专业程序员必须学会与他人有效协作，包括程序员、测试人员、业务分析师和项目经理。
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+## 协作的角色
+- 👨‍💻 **程序员** - 实现功能，保证质量
+- 🧪 **测试人员** - 验证功能，发现缺陷
+- 📊 **项目经理** - 进度管理，资源协调
+- 🎨 **设计师** - 用户体验，界面设计
+
+</div>
+
+<div>
+
+## 与程序员协作的技巧
+- 👀 **代码审查** - 认真review他人代码
+- 💡 **知识分享** - 主动分享技术经验
+- 🆘 **互相帮助** - 遇到困难时寻求帮助
+- 📚 **文档维护** - 共同维护技术文档
+
+## 与其他人协作的技巧
+- 🗣️ **使用业务语言** - 避免程序员技术术语
+- 📊 **可视化展示** - 用图表、原型说明
+- ❓ **主动提问** - 确保理解需求
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 25px !important;
+}
+</style>
+
+---
+
+# 第十三章：团队与项目
+团队比项目更难构建，但也更有价值。专业的软件组织应该围绕团队而非项目来组织工作。
+
+<div class="grid grid-cols-2 gap-12">
+
+<div>
+
+## 团队 vs 项目
+
+| 维度 | 团队 | 项目 |
+|------|------|------|
+| **持续性** | 🔄 长期稳定 | ⏰ 临时性 |
+| **目标** | 🎯 持续价值创造 | 📦 特定交付物 |
+| **成本** | 💰 构建成本高 | 💸 组建成本低 |
+| **效率** | 📈 越来越高效 | 📊 效率波动大 |
+| **知识** | 🧠 知识积累 | 📚 知识流失 |
+
+</div>
+
+<div>
+
+## 核心观点
+
+### 🏗️ 团队建设优先
+- 先组建稳定的团队
+- 再让团队承接多个项目
+- 避免项目结束就解散团队
+
+### 🎯 实施建议
+- 保持团队稳定性（12-18个月以上）
+- 让项目适应团队，而非团队适应项目
+- 投资团队建设和技能培养
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 10px;
+}
+
+h3 {
+  margin-top: 10px;
+}
+
+table {
+  font-size: 0.9em;
+  width: 100%;
+}
+
+th {
+  background-color: #4acbd6;
+  color: white;
+  padding: 8px;
+  text-align: center;
+}
+
+td {
+  padding: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+</style>
+
+---
+
+# 第十四章：辅导、学徒期与技艺
+软件开发是一门技艺，需要通过师傅带徒弟的方式传承。建立成熟的人才培养机制是行业发展的关键。
+
+## 学徒制培养体系
+
+<div class="grid grid-cols-2 gap-12 my-8">
+
+<div>
+
+### 三个阶段
+```mermaid {scale: 0.8}
+graph LR
+    A[学徒 <br/>📚 基础学习] --> B[熟练工 <br/>🔧 独立工作]
+    B --> C[大师 <br/>👨‍🏫 指导他人]
+    
+    style A fill:#fbbf24
+    style B fill:#4ade80  
+    style C fill:#4acbd6
+```
+
+</div>
+
+<div>
+
+### 🎯 培养要点
+- **学徒期** - 跟随经验丰富的导师学习
+- **实践为主** - 在真实项目中学习成长
+- **逐步承担** - 从简单任务到复杂项目
+- **持续反馈** - 及时指导和纠正错误
+
+</div>
+
+</div>
+
+<p>"学校教育只是起点，真正的技艺需要在实践中通过师傅的指导来获得。每个大师都有责任培养下一代的技艺传承者。"</p>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 20px !important;
+}
+
+ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+li {
+  margin-bottom: 4px;
+}
+</style>
+
+---
+
+# 总结
+
+通过学习《The Clean Coder》第5-14章，我们了解了成为专业程序员的关键要素。
+
+## 🎯 专业程序员的三大支柱
+
+<div class="grid grid-cols-2 gap-12">
+
+<div>
+
+<div class="space-y-6">
+
+<div class="p-4 bg-blue-50 rounded-lg">
+<h3 class="text-lg font-bold text-blue-800">🏆 专业精神</h3>
+<p class="text-blue-700">对代码质量负责，坚持技术原则，持续学习成长</p>
+</div>
+
+<div class="p-4 bg-green-50 rounded-lg">
+<h3 class="text-lg font-bold text-green-800">🤝 团队协作</h3>
+<p class="text-green-700">有效沟通，知识分享，共同创造价值</p>
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div class="space-y-6">
+
+<div class="p-4 bg-purple-50 rounded-lg">
+<h3 class="text-lg font-bold text-purple-800">📈 持续改进</h3>
+<p class="text-purple-700">拥抱变化，优化流程，传承技艺</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<style>
+h1, h2, h3 {
+  color: #4acbd6;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin-top: 20px !important;
+}
+
+blockquote {
+  border: none;
+  font-style: italic;
+  background: none;
+  padding: 0;
+  margin: 0;
+}
+
+.space-y-6 > * + * {
+  margin-top: 1.5rem;
+}
+</style>
+
+---
