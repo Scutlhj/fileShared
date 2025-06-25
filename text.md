@@ -1,443 +1,1050 @@
-# Web Animation API 技术分享
-
-## 目录
-
-- [Web Animation API 技术分享](#web-animation-api-技术分享)
-  - [目录](#目录)
-  - [前言：前端动画实现方式](#前言前端动画实现方式)
-  - [1. 简介](#1-简介)
-  - [2. 基本概念](#2-基本概念)
-    - [2.1 Animation（动画对象）](#21-animation动画对象)
-    - [2.2 KeyframeEffect（关键帧效果）](#22-keyframeeffect关键帧效果)
-    - [2.3 AnimationTimeline（动画时间线）](#23-animationtimeline动画时间线)
-  - [3. 核心 API](#3-核心-api)
-    - [3.1 Element.animate() 方法](#31-elementanimate-方法)
-    - [3.2 Animation 构造函数](#32-animation-构造函数)
-    - [3.3 Animation 对象控制](#33-animation-对象控制)
-    - [3.4 动画事件](#34-动画事件)
-  - [4. 实际应用示例](#4-实际应用示例)
-    - [4.1 基础动画示例](#41-基础动画示例)
-  - [5. 与 CSS 动画对比](#5-与-css-动画对比)
-  - [6. 浏览器兼容性](#6-浏览器兼容性)
-  - [7. 性能优化](#7-性能优化)
-  - [8. 总结](#8-总结)
-  - [demo 网站](#demo-网站)
-  - [参考资源](#参考资源)
-
-## 前言：前端动画实现方式
-
-在现代前端开发中，动画已经成为提升用户体验的重要手段。随着技术的发展，前端实现动画的方式也变得多种多样，主要包括以下几种技术：
-
-1. **CSS 过渡（Transitions）**：最简单的动画实现方式，通过定义属性的初始值和结束值，以及过渡时间来实现简单的状态变化动画。
-   
-2. **CSS 动画（Animations）**：通过 `@keyframes` 规则定义动画的关键帧，可以实现更复杂的动画效果，支持循环、延迟等控制。
-
-3. **JavaScript 定时器动画**：使用 `setTimeout` 或 `setInterval` 来手动更新元素样式，实现动画效果。这是早期常用的方式，但性能较差。
-
-4. **requestAnimationFrame**：浏览器提供的专门用于动画的 API，与屏幕刷新率同步，提供更平滑的动画体验和更好的性能。
-
-5. **Canvas/WebGL 动画**：通过 JavaScript 在 Canvas 或使用 WebGL 绘制和更新图形，适合复杂的图形动画和游戏开发。
-
-6. **SVG 动画**：利用 SVG 的特性实现矢量图形动画，可以通过 CSS 或 SMIL 来控制。
-
-7. **JavaScript 动画库**：如 GSAP、Anime.js、Velocity.js 等，提供了丰富的 API 和便捷的动画控制能力。
-
-8. **Web Animation API**：浏览器原生提供的 JavaScript 动画 API，结合了 CSS 动画的性能和 JavaScript 动画的灵活性。
-
-在这些技术中，Web Animation API 作为一种相对较新的技术，正逐渐获得开发者的关注。它既保留了 CSS 动画的高性能特性，又提供了 JavaScript 的灵活控制能力，是一种值得深入了解的动画实现方案。
-
-## 1. 简介
-
-Web Animation API (WAAPI) 是一个相对较新的 JavaScript API，它提供了一种在 Web 页面上创建和控制动画的强大方式。它结合了 CSS 动画和 JavaScript 动画库的优点，使开发者能够以更灵活、更高效的方式创建复杂的动画效果。
-
-
-## 2. 基本概念
-
-Web Animation API 主要包含以下几个核心概念：
-
-### 2.1 Animation（动画对象）
-
-Animation 是 Web Animation API 的核心对象，代表一个独立的动画实例。它连接了动画效果（KeyframeEffect）和时间线（AnimationTimeline），负责控制动画的播放状态。
-
-Animation 对象具有以下特点：
-
-- **可控性**：提供了播放、暂停、反向播放、取消等控制方法
-- **状态查询**：可以查询动画的当前状态（如播放中、暂停、已完成等）
-- **时间控制**：可以设置和获取动画的当前时间、开始时间、播放速率等
-- **事件通知**：提供了动画完成、取消等事件的回调机制
-
-创建 Animation 对象的方式有两种：
-1. 通过 `Element.animate()` 方法隐式创建
-2. 通过 `new Animation()` 构造函数显式创建
-
-```javascript
-// 方式1：使用 Element.animate()
-const animation1 = element.animate(keyframes, options);
-
-// 方式2：使用 Animation 构造函数
-const effect = new KeyframeEffect(element, keyframes, options);
-const animation2 = new Animation(effect, document.timeline);
-```
-
-### 2.2 KeyframeEffect（关键帧效果）
-
-KeyframeEffect 定义了动画的视觉效果，包括要改变的 CSS 属性、关键帧和时间参数。它描述了"动画做什么"，而不涉及"何时做"或"如何控制"。
-
-KeyframeEffect 包含三个主要组成部分：
-
-1. **目标元素**：要应用动画效果的 DOM 元素
-2. **关键帧**：描述动画在不同时间点的状态
-3. **时间参数**：如持续时间、迭代次数、缓动函数等
-
-关键帧可以用数组形式定义，每个对象代表一个关键帧：
-
-```javascript
-const keyframes = [
-  { opacity: 0, transform: 'scale(0.8)' },  // 起始关键帧
-  { opacity: 1, transform: 'scale(1)' }     // 结束关键帧
-];
-```
-
-也可以使用对象形式，明确指定每个属性在各个时间点的值：
-
-```javascript
-const keyframes = {
-  opacity: [0, 0.7, 1],                    // 三个时间点的透明度
-  transform: ['scale(0.8)', 'scale(1.2)', 'scale(1)']  // 三个时间点的缩放
-};
-```
-
-时间参数通过一个选项对象指定：
-
-```javascript
-const options = {
-  duration: 1000,           // 持续时间（毫秒）
-  iterations: 2,            // 迭代次数
-  delay: 500,               // 延迟开始时间
-  endDelay: 0,              // 结束后延迟时间
-  easing: 'ease-in-out',    // 缓动函数
-  direction: 'alternate',   // 方向（正向、反向、交替等）
-  fill: 'forwards'          // 填充模式（动画结束后保持最终状态）
-};
-```
-
-### 2.3 AnimationTimeline（动画时间线）
-
-AnimationTimeline 为动画提供时间参考系统，决定了动画何时开始、如何进行以及如何与其他动画同步。时间线是连接动画与实际时间或其他进度指标（如滚动位置）的桥梁。
-
-目前，Web Animation API 主要实现了 DocumentTimeline，它与文档的加载时间相关联：
-
-```javascript
-// 获取文档的默认时间线
-const timeline = document.timeline;
-```
-
-每个文档都有一个默认的时间线，可以通过 `document.timeline` 访问。当使用 `Element.animate()` 方法时，会自动使用文档的默认时间线。
-
-时间线的主要特性：
-
-- **时间原点**：定义时间为0的参考点
-- **当前时间**：提供动画系统的当前时间
-- **时间缩放**：某些时间线可能支持时间缩放（如加速或减速）
-
-未来的 Web Animation API 规范可能会引入更多类型的时间线，如：
-
-- **ScrollTimeline**：基于滚动位置的时间线
-- **ViewTimeline**：基于元素可见性的时间线
-
-这三个核心概念共同构成了 Web Animation API 的基础架构：KeyframeEffect 定义动画效果，AnimationTimeline 提供时间参考，Animation 将两者连接并提供控制接口。
-
-
-## 3. 核心 API
-
-### 3.1 Element.animate() 方法
-
-最简单的创建动画的方式是使用 `Element.animate()` 方法：
-
-```javascript
-const element = document.querySelector('.box');
-const animation = element.animate(
-  [
-    // 关键帧
-    { transform: 'translateX(0px)' },
-    { transform: 'translateX(300px)' }
-  ], 
-  {
-    // 时间选项
-    duration: 1000,
-    iterations: Infinity,
-    direction: 'alternate',
-    easing: 'ease-in-out'
-  }
-);
-```
-
-### 3.2 Animation 构造函数
-
-除了使用 `Element.animate()` 方法外，还可以使用 `Animation` 构造函数来创建更灵活的动画：
-
-```javascript
-// 1. 创建关键帧效果
-const element = document.querySelector('.box');
-const keyframeEffect = new KeyframeEffect(
-  element,                      // 目标元素
-  [                             // 关键帧
-    { transform: 'scale(1)', opacity: 1 },
-    { transform: 'scale(1.5)', opacity: 0.5, offset: 0.7 },
-    { transform: 'scale(1)', opacity: 1 }
-  ],
-  {                             // 时间选项
-    duration: 2000,
-    iterations: 3,
-    easing: 'cubic-bezier(0.42, 0, 0.58, 1)',
-    fill: 'forwards'
-  }
-);
-
-// 2. 创建动画实例
-const animation = new Animation(
-  keyframeEffect,               // 关键帧效果
-  document.timeline             // 时间线
-);
-
-// 3. 播放动画
-animation.play();
-```
-
-使用 `Animation` 构造函数的优势：
-
-- 可以先定义关键帧效果，稍后再播放动画
-- 可以在多个动画之间重用相同的关键帧效果
-- 可以使用不同的时间线（如 `document.timeline` 或自定义时间线）
-- 提供更精细的动画控制和组合能力
-
-### 3.3 Animation 对象控制
-
-一旦创建了动画，我们可以通过返回的 Animation 对象来控制它：
-
-```javascript
-// 暂停动画
-animation.pause();
-
-// 播放动画
-animation.play();
-
-// 反向播放
-animation.reverse();
-
-// 取消动画
-animation.cancel();
-
-// 完成动画
-animation.finish();
-
-// 设置播放速率
-animation.updatePlaybackRate(2);
-
-// 将动画当前样式的计算值写入其目标元素的 style 属性中
-animation.commitStyles();
-
-// 设置当前时间
-animation.currentTime = 500; // 单位为毫秒
-```
-
-### 3.4 动画事件
-
-Animation 对象提供了多种事件，可以用来监听动画的状态变化：
-
-```javascript
-animation.onfinish = () => {
-  console.log('动画完成');
-};
-
-animation.oncancel = () => {
-  console.log('动画被取消');
-};
-
-
-```
-
-## 4. 实际应用示例
-
-### 4.1 基础动画示例
-一个卡片翻转动画：
-
-```html
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>卡片翻转动画</title>
-  <style>
-    .card-container {
-      width: 200px;
-      height: 300px;
-      perspective: 1000px;
-      margin: 50px auto;
+# 读书笔记：Head First 设计模式
+
+## 第1章 策略模式 (Strategy Pattern)
+
+### 核心思想
+定义算法族，分别封装起来，让它们之间可以互相替换。策略模式让算法的变化独立于使用算法的客户。
+
+### 设计原则
+1. **找出应用中可能需要变化之处，把它们独立出来**
+2. **针对接口编程，而不是针对实现编程**
+3. **多用组合，少用继承**
+
+### 经典案例：鸭子模拟器
+**问题：** 不同种类的鸭子有不同的飞行和叫声行为，使用继承会导致代码重复和维护困难。
+
+**解决方案：** 将飞行行为和叫声行为抽象成接口，具体行为作为实现类。
+
+```mermaid
+classDiagram
+    class Duck {
+        <<abstract>>
+        -flyBehavior: FlyBehavior
+        -quackBehavior: QuackBehavior
+        +performFly()
+        +performQuack()
+        +setFlyBehavior()
     }
-    .card {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      transform-style: preserve-3d;
-    }
-    .front, .back {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      backface-visibility: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      border-radius: 10px;
-    }
-    .front {
-      background-color: #3498db;
-      color: white;
-    }
-    .back {
-      background-color: #e74c3c;
-      color: white;
-      transform: rotateY(180deg);
-    }
-    button {
-      display: block;
-      margin: 20px auto;
-      padding: 10px 20px;
-    }
-  </style>
-</head>
-<body>
-  <div class="card-container">
-    <div class="card">
-      <div class="front">正面</div>
-      <div class="back">背面</div>
-    </div>
-  </div>
-  
-  <button id="flip">翻转卡片</button>
-
-  <script>
-    const card = document.querySelector('.card');
-    let flipped = false;
     
-    // 创建动画但不立即播放
-    const flipAnimation = card.animate(
-      [
-        { transform: 'rotateY(0deg)' },
-        { transform: 'rotateY(180deg)' }
-      ],
-      {
-        duration: 600,
-        easing: 'ease-in-out',
-        fill: 'forwards'
-      }
+    class FlyBehavior {
+        <<interface>>
+        +fly()
+    }
+    
+    class QuackBehavior {
+        <<interface>>
+        +quack()
+    }
+    
+    class FlyWithWings {
+        +fly()
+    }
+    
+    class FlyNoWay {
+        +fly()
+    }
+    
+    class Quack {
+        +quack()
+    }
+    
+    class Squeak {
+        +quack()
+    }
+    
+    class MallardDuck {
+        +display()
+    }
+    
+    Duck --> FlyBehavior
+    Duck --> QuackBehavior
+    FlyBehavior <|.. FlyWithWings
+    FlyBehavior <|.. FlyNoWay
+    QuackBehavior <|.. Quack
+    QuackBehavior <|.. Squeak
+    Duck <|-- MallardDuck
+```
+
+### TypeScript 核心实现
+
+```typescript
+// 策略接口
+interface FlyBehavior {
+  fly(): void;
+}
+
+// 具体策略
+class FlyWithWings implements FlyBehavior {
+  fly(): void { console.log("I'm flying!"); }
+}
+
+class FlyNoWay implements FlyBehavior {
+  fly(): void { console.log("I can't fly"); }
+}
+
+// 上下文类
+abstract class Duck {
+  protected flyBehavior: FlyBehavior;
+
+  constructor(flyBehavior: FlyBehavior) {
+    this.flyBehavior = flyBehavior;
+  }
+
+  performFly(): void {
+    this.flyBehavior.fly();
+  }
+
+  // 运行时改变行为
+  setFlyBehavior(flyBehavior: FlyBehavior): void {
+    this.flyBehavior = flyBehavior;
+  }
+}
+
+// 具体鸭子
+class MallardDuck extends Duck {
+  constructor() {
+    super(new FlyWithWings());
+  }
+}
+```
+
+### 应用场景
+- 支付系统（支付宝、微信、银行卡支付）
+- 排序算法选择
+- 游戏角色技能系统
+- 数据压缩算法选择
+
+---
+
+## 第2章 观察者模式 (Observer Pattern)
+
+### 核心思想
+定义对象之间的一对多依赖，当一个对象改变状态时，它的所有依赖者都会收到通知并自动更新。
+
+### 设计原则
+**为了交互对象之间的松耦合设计而努力**
+
+### 经典案例：气象监测站
+**问题：** 气象数据更新时，需要同时更新多个显示设备。
+
+```mermaid
+classDiagram
+    class Subject {
+        <<interface>>
+        +registerObserver(Observer)
+        +removeObserver(Observer)
+        +notifyObservers()
+    }
+    
+    class Observer {
+        <<interface>>
+        +update()
+    }
+    
+    class WeatherData {
+        -observers: Observer[]
+        -temperature: number
+        -humidity: number
+        +registerObserver()
+        +removeObserver()
+        +notifyObservers()
+        +setMeasurements()
+    }
+    
+    class CurrentConditionsDisplay {
+        -temperature: number
+        -humidity: number
+        +update()
+        +display()
+    }
+    
+    class StatisticsDisplay {
+        -maxTemp: number
+        -minTemp: number
+        +update()
+        +display()
+    }
+    
+    Subject <|.. WeatherData
+    Observer <|.. CurrentConditionsDisplay
+    Observer <|.. StatisticsDisplay
+    WeatherData --> Observer : notifies
+```
+
+### TypeScript 核心实现
+
+```typescript
+// 观察者接口
+interface Observer {
+  update(data: any): void;
+}
+
+// 主题接口
+interface Subject {
+  registerObserver(observer: Observer): void;
+  removeObserver(observer: Observer): void;
+  notifyObservers(): void;
+}
+
+// 具体主题
+class WeatherData implements Subject {
+  private observers: Observer[] = [];
+  private temperature: number = 0;
+
+  registerObserver(observer: Observer): void {
+    this.observers.push(observer);
+  }
+
+  removeObserver(observer: Observer): void {
+    const index = this.observers.indexOf(observer);
+    if (index >= 0) this.observers.splice(index, 1);
+  }
+
+  notifyObservers(): void {
+    this.observers.forEach(observer => 
+      observer.update({ temperature: this.temperature })
     );
+  }
+
+  setMeasurements(temperature: number): void {
+    this.temperature = temperature;
+    this.notifyObservers();
+  }
+}
+
+// 具体观察者
+class CurrentConditionsDisplay implements Observer {
+  update(data: any): void {
+    console.log(`Current temperature: ${data.temperature}°F`);
+  }
+}
+```
+
+### 推模型 vs 拉模型
+- **推模型：** 主题向观察者推送详细信息
+- **拉模型：** 主题只通知变化，观察者主动获取需要的数据
+
+### 观察者模式 vs 发布订阅模式
+
+虽然观察者模式和发布订阅模式都实现了对象间的一对多依赖关系，但它们有重要区别：
+
+#### 观察者模式 (Observer Pattern)
+```mermaid
+graph LR
+    A[Subject主题] --> B[Observer观察者1]
+    A --> C[Observer观察者2]
+    A --> D[Observer观察者3]
     
-    // 初始状态为暂停
-    flipAnimation.pause();
+    style A fill:#137e90
+    style B fill:#137e90
+    style C fill:#137e90
+    style D fill:#137e90
+```
+
+**特点：**
+- **直接依赖：** Subject 直接持有 Observer 的引用
+- **紧耦合：** Subject 和 Observer 相互知道对方的存在
+- **同步通信：** 通常是同步调用
+- **一对多：** 一个 Subject 对应多个 Observer
+
+#### 发布订阅模式 (Publish-Subscribe Pattern)
+```mermaid
+graph LR
+    A[Publisher发布者] --> E[Event Bus/Message Broker]
+    E --> B[Subscriber订阅者1]
+    E --> C[Subscriber订阅者2]
+    E --> D[Subscriber订阅者3]
     
-    document.getElementById('flip').addEventListener('click', () => {
-      if (flipped) {
-        flipAnimation.playbackRate = -1; // 反向播放
-      } else {
-        flipAnimation.playbackRate = 1; // 正向播放
+    style A fill:#137e90
+    style E fill:#137e90
+    style B fill:#137e90
+    style C fill:#137e90
+    style D fill:#137e90
+```
+
+**特点：**
+- **间接依赖：** Publisher 和 Subscriber 通过消息中心通信
+- **松耦合：** Publisher 和 Subscriber 互不知道对方的存在
+- **异步通信：** 通常支持异步消息传递
+- **多对多：** 多个 Publisher 对应多个 Subscriber
+
+#### 对比实现
+
+**观察者模式实现：**
+```typescript
+// 观察者模式 - 直接依赖
+class WeatherStation implements Subject {
+  private observers: Observer[] = [];
+  
+  registerObserver(observer: Observer): void {
+    this.observers.push(observer); // 直接持有观察者引用
+  }
+  
+  notifyObservers(): void {
+    this.observers.forEach(observer => observer.update()); // 直接调用
+  }
+}
+```
+
+**发布订阅模式实现：**
+```typescript
+// 发布订阅模式 - 通过事件中心
+class EventBus {
+  private events: Map<string, Function[]> = new Map();
+  
+  subscribe(eventType: string, callback: Function): void {
+    if (!this.events.has(eventType)) {
+      this.events.set(eventType, []);
+    }
+    this.events.get(eventType)!.push(callback);
+  }
+  
+  publish(eventType: string, data: any): void {
+    const callbacks = this.events.get(eventType);
+    if (callbacks) {
+      callbacks.forEach(callback => callback(data));
+    }
+  }
+  
+  unsubscribe(eventType: string, callback: Function): void {
+    const callbacks = this.events.get(eventType);
+    if (callbacks) {
+      const index = callbacks.indexOf(callback);
+      if (index > -1) {
+        callbacks.splice(index, 1);
       }
-      
-      flipAnimation.play();
-      flipped = !flipped;
-    });
-  </script>
-</body>
-</html>
+    }
+  }
+}
+
+// 发布者
+class WeatherPublisher {
+  constructor(private eventBus: EventBus) {}
+  
+  publishWeatherUpdate(data: any): void {
+    this.eventBus.publish('weather-update', data); // 通过事件中心发布
+  }
+}
+
+// 订阅者
+class WeatherSubscriber {
+  constructor(private eventBus: EventBus) {
+    this.eventBus.subscribe('weather-update', this.handleWeatherUpdate.bind(this));
+  }
+  
+  private handleWeatherUpdate(data: any): void {
+    console.log('Weather updated:', data);
+  }
+}
 ```
 
-## 5. 与 CSS 动画对比
+#### 使用场景对比
 
-Web Animation API 与 CSS 动画相比有以下优势：
+| 特征 | 观察者模式 | 发布订阅模式 |
+|------|------------|--------------|
+| **耦合度** | 紧耦合 | 松耦合 |
+| **通信方式** | 直接通信 | 间接通信 |
+| **复杂度** | 简单 | 相对复杂 |
+| **扩展性** | 较差 | 较好 |
+| **适用场景** | 简单的一对多通知 | 复杂的事件系统 |
+| **典型应用** | MVC架构、GUI事件 | 消息队列、微服务通信 |
 
-| 特性 | Web Animation API | CSS 动画 |
-|------|-------------------|----------|
-| 动态控制 | 可以通过 JS 完全控制动画状态 | 有限的控制能力 |
-| 性能 | 与 CSS 动画相当 | 优秀 |
-| 复杂度 | 可以创建更复杂的动画序列 | 复杂动画需要大量代码 |
-| 事件处理 | 提供丰富的事件回调 | 有限的事件支持 |
-| 关键帧生成 | 可以动态生成关键帧 | 关键帧需要预定义 |
 
-## 6. 浏览器兼容性
+#### 现实应用示例
 
-Web Animation API 在现代浏览器中的支持情况：
+**观察者模式：**
+- DOM事件监听
+- MVC框架中的数据绑定
+- 股票价格监控系统
 
-https://caniuse.com/?search=web%20animation%20api
+**发布订阅模式：**
+- Node.js EventEmitter
+- Redis Pub/Sub
+- 微服务架构中的事件总线
+- 前端状态管理（Redux、Vuex）
 
-对于不支持的浏览器，可以使用 [web-animations-js](https://github.com/web-animations/web-animations-js) polyfill：
+### 应用场景
+- MVC架构中的模型-视图关系
+- 事件驱动系统
+- 股票价格监控
+- GUI事件处理
 
-```html
-<script src="https://cdn.jsdelivr.net/npm/web-animations-js@2.3.2/web-animations.min.js"></script>
+---
+
+## 第3章 装饰者模式 (Decorator Pattern)
+
+### 核心思想
+动态地将责任附加到对象上。若要扩展功能，装饰者提供了比继承更有弹性的替代方案。
+
+### 设计原则
+**类应该对扩展开放，对修改关闭（开闭原则）**
+
+### 经典案例：星巴克咖啡订单系统
+**问题：** 咖啡有多种配料组合，用继承会产生类爆炸。
+
+```mermaid
+classDiagram
+    class Beverage {
+        <<abstract>>
+        +description: string
+        +getDescription()
+        +cost()
+    }
+    
+    class CondimentDecorator {
+        <<abstract>>
+        +getDescription()
+    }
+    
+    class Espresso {
+        +cost()
+    }
+    
+    class HouseBlend {
+        +cost()
+    }
+    
+    class Mocha {
+        -beverage: Beverage
+        +getDescription()
+        +cost()
+    }
+    
+    class Whip {
+        -beverage: Beverage
+        +getDescription()
+        +cost()
+    }
+    
+    Beverage <|-- Espresso
+    Beverage <|-- HouseBlend
+    Beverage <|-- CondimentDecorator
+    CondimentDecorator <|-- Mocha
+    CondimentDecorator <|-- Whip
+    CondimentDecorator --> Beverage : wraps
 ```
 
-## 7. 性能优化
+### TypeScript 核心实现
 
-使用 Web Animation API 时的性能优化建议：
+```typescript
+// 抽象组件
+abstract class Beverage {
+  description: string = "Unknown Beverage";
+  
+  getDescription(): string {
+    return this.description;
+  }
+  
+  abstract cost(): number;
+}
 
-1. **使用 transform 和 opacity 属性**：这些属性可以由 GPU 加速
-   
-   ```javascript
-   // 好的做法
-   element.animate([
-     { transform: 'translateX(0)' },
-     { transform: 'translateX(100px)' }
-   ], 1000);
-   
-   // 避免这样做
-   element.animate([
-     { left: '0px' },
-     { left: '100px' }
-   ], 1000);
-   ```
+// 具体组件
+class Espresso extends Beverage {
+  constructor() {
+    super();
+    this.description = "Espresso";
+  }
+  
+  cost(): number {
+    return 1.99;
+  }
+}
 
-2. **避免同时动画过多元素**：这可能导致性能问题
+// 装饰者基类
+abstract class CondimentDecorator extends Beverage {
+  abstract getDescription(): string;
+}
 
-3. **使用 will-change 属性**：创建独立的图层
+// 具体装饰者
+class Mocha extends CondimentDecorator {
+  private beverage: Beverage;
+  
+  constructor(beverage: Beverage) {
+    super();
+    this.beverage = beverage;
+  }
+  
+  getDescription(): string {
+    return this.beverage.getDescription() + ", Mocha";
+  }
+  
+  cost(): number {
+    return 0.20 + this.beverage.cost();
+  }
+}
 
-   ```css
-   .animated-element {
-     will-change: transform, opacity;
-   }
-   ```
+// 使用示例
+let beverage: Beverage = new Espresso();
+beverage = new Mocha(beverage);
+console.log(`${beverage.getDescription()} $${beverage.cost()}`);
+// 输出: Espresso, Mocha $2.19
+```
 
-## 8. 总结
+### Java I/O中的装饰者模式
+- `InputStream` 是抽象组件
+- `FileInputStream` 是具体组件
+- `FilterInputStream` 是装饰者基类
+- `BufferedInputStream`、`DataInputStream` 是具体装饰者
 
-Web Animation API 为前端开发者提供了一种强大的创建和控制动画的方式，它结合了 CSS 动画的性能和 JavaScript 的灵活性。通过本次分享，我们了解了：
+### 应用场景
+- Java I/O流
+- Web框架中的请求/响应包装
+- 图形界面组件功能扩展
+- 缓存装饰器
 
-- Web Animation API 的基本概念和核心 API
-- 如何创建和控制动画
-- 实际应用示例
-- 与 CSS 动画的对比
-- 浏览器兼容性和性能优化
+---
 
-随着浏览器支持的不断完善，Web Animation API 将成为前端动画开发的重要工具。
+## 第4章 工厂模式 (Factory Pattern)
 
+### 工厂方法模式
+**核心思想：** 定义了一个创建对象的接口，但由子类决定要实例化的类是哪一个。
 
-## demo 网站
+### 设计原则
+**依赖倒置原则：** 要依赖抽象，不要依赖具体类
 
-1. **Web Animations API Demos**：
-   - https://web-animations.github.io/web-animations-demos/
-   - 这是官方提供的一系列演示，展示了 Web Animation API 的各种功能和用例。
+### 经典案例：披萨店
+**问题：** 不同地区的披萨店制作不同风味的披萨。
 
-2. **CodePen 上的 WAAPI 示例**：
-   - https://codepen.io/Kevin-Loeng/pen/GvBgbr
-   - 使用 animation api 实现的轮播图效果
+```mermaid
+classDiagram
+    class PizzaStore {
+        <<abstract>>
+        +orderPizza(type)
+        +createPizza(type)*
+    }
+    
+    class Pizza {
+        <<abstract>>
+        +name: string
+        +prepare()
+        +bake()
+        +cut()
+    }
+    
+    class NYPizzaStore {
+        +createPizza(type)
+    }
+    
+    class ChicagoPizzaStore {
+        +createPizza(type)
+    }
+    
+    class NYStyleCheesePizza {
+        +prepare()
+    }
+    
+    class ChicagoStyleCheesePizza {
+        +prepare()
+    }
+    
+    PizzaStore <|-- NYPizzaStore
+    PizzaStore <|-- ChicagoPizzaStore
+    Pizza <|-- NYStyleCheesePizza
+    Pizza <|-- ChicagoStyleCheesePizza
+    PizzaStore ..> Pizza : creates
+```
 
-3. **Animista**：
-   - https://animista.net/
-   - 提供了丰富的 CSS 动画效果，可以作为 Web Animation API 的参考。
+### TypeScript 核心实现
 
-## 参考资源
+```typescript
+// 产品接口
+abstract class Pizza {
+  name: string = "";
+  
+  prepare(): void { console.log(`Preparing ${this.name}`); }
+  bake(): void { console.log("Baking..."); }
+  cut(): void { console.log("Cutting..."); }
+}
 
-- [MDN Web Animation API 文档](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API)
-- [CSS-Tricks 上的 Web Animation API 介绍](https://css-tricks.com/css-animations-vs-web-animations-api/)
-- [Web Animation API 规范](https://www.w3.org/TR/web-animations-1/)
-- [CSS3 动画 animation学习笔记 之 属性详解简单介绍 - 掘金](https://juejin.cn/post/7299671709476094004)
-- [Web 动画技术概览](https://zhangqiang.work/notes/n2202_web_animation)
+// 具体产品
+class NYStyleCheesePizza extends Pizza {
+  constructor() {
+    super();
+    this.name = "NY Style Cheese Pizza";
+  }
+}
+
+// 抽象工厂
+abstract class PizzaStore {
+  orderPizza(type: string): Pizza {
+    const pizza = this.createPizza(type); // 工厂方法
+    pizza.prepare();
+    pizza.bake();
+    pizza.cut();
+    return pizza;
+  }
+  
+  protected abstract createPizza(type: string): Pizza;
+}
+
+// 具体工厂
+class NYPizzaStore extends PizzaStore {
+  protected createPizza(type: string): Pizza {
+    if (type === "cheese") {
+      return new NYStyleCheesePizza();
+    }
+    throw new Error("Unknown pizza type");
+  }
+}
+```
+
+### 抽象工厂模式
+**核心思想：** 提供一个接口，用于创建相关或依赖对象的家族。
+
+**与工厂方法的区别：**
+- 工厂方法：创建一个产品
+- 抽象工厂：创建一个产品家族
+
+### 应用场景
+- 数据库访问层（MySQL、Oracle、SQL Server）
+- 跨平台UI组件
+- 游戏中的不同难度等级
+
+---
+
+## 第5章 单例模式 (Singleton Pattern)
+
+### 核心思想
+确保一个类只有一个实例，并提供全局访问点。
+
+### 经典案例：巧克力工厂的锅炉控制器
+**问题：** 多个锅炉控制器会导致资源浪费和安全问题。
+
+```mermaid
+classDiagram
+    class Singleton {
+        -instance: Singleton
+        -Singleton()
+        +getInstance() Singleton
+        +doSomething()
+    }
+    
+    note for Singleton "私有构造函数
+    静态实例变量
+    静态获取方法"
+```
+
+### 常见实现方式
+
+**1. 懒汉式（线程不安全）**
+```typescript
+class Singleton {
+  private static instance: Singleton;
+  private constructor() {}
+  
+  static getInstance(): Singleton {
+    if (!Singleton.instance) {
+      Singleton.instance = new Singleton();
+    }
+    return Singleton.instance;
+  }
+}
+```
+
+**2. 饿汉式**
+```typescript
+class Singleton {
+  private static instance: Singleton = new Singleton();
+  private constructor() {}
+  
+  static getInstance(): Singleton {
+    return Singleton.instance;
+  }
+}
+```
+
+### 应用场景
+- 日志记录器
+- 数据库连接池
+- 配置管理器
+- 缓存
+
+### 注意事项
+- 不要滥用单例模式
+- 考虑依赖注入替代方案
+- 难以进行单元测试
+
+---
+
+## 第6章 命令模式 (Command Pattern)
+
+### 核心思想
+将请求封装成对象，以便使用不同的请求、队列或者日志来参数化其他对象。
+
+### 经典案例：万能遥控器
+**问题：** 遥控器需要控制各种不同的设备，且功能可能随时变化。
+
+```mermaid
+classDiagram
+    class RemoteControl {
+        -onCommands: Command[]
+        -offCommands: Command[]
+        -undoCommand: Command
+        +setCommand(slot, onCmd, offCmd)
+        +onButtonWasPushed(slot)
+        +offButtonWasPushed(slot)
+        +undoButtonWasPushed()
+    }
+    
+    class Command {
+        <<interface>>
+        +execute()
+        +undo()
+    }
+    
+    class LightOnCommand {
+        -light: Light
+        +execute()
+        +undo()
+    }
+    
+    class LightOffCommand {
+        -light: Light
+        +execute()
+        +undo()
+    }
+    
+    class Light {
+        -location: string
+        +on()
+        +off()
+    }
+    
+    class NoCommand {
+        +execute()
+        +undo()
+    }
+    
+    RemoteControl --> Command
+    Command <|.. LightOnCommand
+    Command <|.. LightOffCommand
+    Command <|.. NoCommand
+    LightOnCommand --> Light
+    LightOffCommand --> Light
+```
+
+### TypeScript 核心实现
+
+```typescript
+// 命令接口
+interface Command {
+  execute(): void;
+  undo(): void;
+}
+
+// 空命令对象（空对象模式）
+class NoCommand implements Command {
+  execute(): void {}
+  undo(): void {}
+}
+
+// 接收者
+class Light {
+  private location: string;
+  
+  constructor(location: string) {
+    this.location = location;
+  }
+  
+  on(): void {
+    console.log(`${this.location} light is on`);
+  }
+  
+  off(): void {
+    console.log(`${this.location} light is off`);
+  }
+}
+
+// 具体命令
+class LightOnCommand implements Command {
+  private light: Light;
+  
+  constructor(light: Light) {
+    this.light = light;
+  }
+  
+  execute(): void {
+    this.light.on();
+  }
+  
+  undo(): void {
+    this.light.off();
+  }
+}
+
+// 调用者
+class RemoteControl {
+  private onCommands: Command[] = [];
+  private offCommands: Command[] = [];
+  private undoCommand: Command;
+  
+  constructor() {
+    const noCommand = new NoCommand();
+    for (let i = 0; i < 7; i++) {
+      this.onCommands[i] = noCommand;
+      this.offCommands[i] = noCommand;
+    }
+    this.undoCommand = noCommand;
+  }
+  
+  setCommand(slot: number, onCommand: Command, offCommand: Command): void {
+    this.onCommands[slot] = onCommand;
+    this.offCommands[slot] = offCommand;
+  }
+  
+  onButtonWasPushed(slot: number): void {
+    this.onCommands[slot].execute();
+    this.undoCommand = this.onCommands[slot];
+  }
+  
+  undoButtonWasPushed(): void {
+    this.undoCommand.undo();
+  }
+}
+```
+
+### 高级特性
+
+**宏命令（组合命令）**
+```typescript
+class MacroCommand implements Command {
+  private commands: Command[];
+  
+  constructor(commands: Command[]) {
+    this.commands = commands;
+  }
+  
+  execute(): void {
+    this.commands.forEach(command => command.execute());
+  }
+  
+  undo(): void {
+    for (let i = this.commands.length - 1; i >= 0; i--) {
+      this.commands[i].undo();
+    }
+  }
+}
+```
+
+### 应用场景
+- GUI按钮和菜单项
+- 撤销/重做功能
+- 宏录制
+- 队列请求
+- 日志请求
+
+---
+
+## 第7章 适配器模式和外观模式
+
+### 适配器模式 (Adapter Pattern)
+
+#### 核心思想
+将一个类的接口，转换成客户期望的另一个接口。让原本接口不兼容的类可以合作无间。
+
+#### 经典案例：鸭子和火鸡
+**问题：** 缺少鸭子对象，想用火鸡对象来冒充。
+
+```mermaid
+classDiagram
+    class Duck {
+        <<interface>>
+        +quack()
+        +fly()
+    }
+    
+    class Turkey {
+        <<interface>>
+        +gobble()
+        +fly()
+    }
+    
+    class WildTurkey {
+        +gobble()
+        +fly()
+    }
+    
+    class TurkeyAdapter {
+        -turkey: Turkey
+        +quack()
+        +fly()
+    }
+    
+    class Client {
+        +testDuck(Duck)
+    }
+    
+    Duck <|.. TurkeyAdapter
+    Turkey <|.. WildTurkey
+    TurkeyAdapter --> Turkey
+    Client --> Duck
+```
+
+#### TypeScript 实现
+
+```typescript
+// 目标接口
+interface Duck {
+  quack(): void;
+  fly(): void;
+}
+
+// 被适配者
+interface Turkey {
+  gobble(): void;
+  fly(): void;
+}
+
+class WildTurkey implements Turkey {
+  gobble(): void {
+    console.log("Gobble gobble");
+  }
+  
+  fly(): void {
+    console.log("I'm flying a short distance");
+  }
+}
+
+// 适配器
+class TurkeyAdapter implements Duck {
+  private turkey: Turkey;
+  
+  constructor(turkey: Turkey) {
+    this.turkey = turkey;
+  }
+  
+  quack(): void {
+    this.turkey.gobble();
+  }
+  
+  fly(): void {
+    // 火鸡飞行距离短，需要飞5次才能相当于鸭子飞1次
+    for (let i = 0; i < 5; i++) {
+      this.turkey.fly();
+    }
+  }
+}
+```
+
+### 外观模式 (Facade Pattern)
+
+#### 核心思想
+提供了一个统一的接口，用来访问子系统中的一群接口。外观定义了一个高层接口，让子系统更容易使用。
+
+#### 设计原则
+**最少知识原则（迪米特法则）：** 只和你的密友谈话
+
+#### 经典案例：家庭影院系统
+**问题：** 看电影需要操作多个复杂的子系统。
+
+```mermaid
+classDiagram
+    class Client {
+        +main()
+    }
+    
+    class HomeTheaterFacade {
+        -amp: Amplifier
+        -dvd: DVDPlayer
+        -projector: Projector
+        -lights: TheaterLights
+        -popper: PopcornPopper
+        +watchMovie(movie)
+        +endMovie()
+    }
+    
+    class Amplifier {
+        +on()
+        +off()
+        +setVolume(volume)
+    }
+    
+    class DVDPlayer {
+        +on()
+        +off()
+        +play(movie)
+        +stop()
+    }
+    
+    class Projector {
+        +on()
+        +off()
+        +wideScreenMode()
+    }
+    
+    class TheaterLights {
+        +dim(level)
+        +on()
+    }
+    
+    class PopcornPopper {
+        +on()
+        +off()
+        +pop()
+    }
+    
+    Client --> HomeTheaterFacade
+    HomeTheaterFacade --> Amplifier
+    HomeTheaterFacade --> DVDPlayer
+    HomeTheaterFacade --> Projector
+    HomeTheaterFacade --> TheaterLights
+    HomeTheaterFacade --> PopcornPopper
+```
+
+#### TypeScript 实现
+
+```typescript
+// 子系统类
+class Amplifier {
+  on(): void { console.log("Amplifier on"); }
+  setVolume(volume: number): void { 
+    console.log(`Amplifier volume set to ${volume}`); 
+  }
+}
+
+class DVDPlayer {
+  on(): void { console.log("DVD Player on"); }
+  play(movie: string): void { 
+    console.log(`DVD Player playing "${movie}"`); 
+  }
+}
+
+class Projector {
+  on(): void { console.log("Projector on"); }
+  wideScreenMode(): void { console.log("Projector in widescreen mode"); }
+}
+
+// 外观类
+class HomeTheaterFacade {
+  private amp: Amplifier;
+  private dvd: DVDPlayer;
+  private projector: Projector;
+  
+  constructor(amp: Amplifier, dvd: DVDPlayer, projector: Projector) {
+    this.amp = amp;
+    this.dvd = dvd;
+    this.projector = projector;
+  }
+  
+  watchMovie(movie: string): void {
+    console.log("Get ready to watch a movie...");
+    this.projector.on();
+    this.projector.wideScreenMode();
+    this.amp.on();
+    this.amp.setVolume(5);
+    this.dvd.on();
+    this.dvd.play(movie);
+  }
+}
+```
+
+### 适配器模式 vs 外观模式
+
+| 特征 | 适配器模式 | 外观模式 |
+|------|------------|----------|
+| 意图 | 改变接口以符合客户的期望 | 提供子系统的简化接口 |
+| 包装对象数量 | 一个 | 一个或多个 |
+| 接口改变 | 是 | 否（简化现有接口） |
+| 主要目的 | 接口转换 | 简化复杂系统 |
+
+---
